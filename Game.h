@@ -1,4 +1,5 @@
 #pragma once
+#include "projectile.h"
 #include <SFML/Graphics.hpp>
 #include <SFML/System.hpp>
 #include <SFML/Window.hpp>
@@ -6,10 +7,10 @@
 #include <SFML/Network.hpp>
 
 /* Game Logic */
+//I understand having namespace in a header is bad practice, but for the sake of simplicity in this project, I'll use it here. In a larger project, it's better to avoid this and use fully qualified names or wrap the entire class in a namespace.
 using namespace sf;
 
-class Game
-{
+class Game {
 private:
 	//Variables
 	//Window
@@ -25,6 +26,12 @@ private:
 	//Entities
 	CircleShape player;
 	RectangleShape enemy;
+
+	//Projectiles
+	std::vector<Projectile*> projectiles;
+
+	float fireTimer;
+	float fireTimerMax;
 	
 	//init Functions for Game
 	void initPlayer();
@@ -32,10 +39,14 @@ private:
 	void initVariables();
 	void initWindow();
 
-	//Logic functions
+	//Logic functions for enemies
 	void spawnEnemy();
 	void moveEnemy(RectangleShape& enemy);
 	void resolveCollision(RectangleShape& currentEnemy, float minDistance);
+
+	//Logic functions for projectiles
+	void updateProjectiles();
+	void spawnProjectile();
 
 public: 
 	Game();

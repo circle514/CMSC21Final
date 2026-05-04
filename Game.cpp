@@ -6,13 +6,20 @@ using namespace sf;
 void Game::initVariables() {
 	this->window = nullptr;
 
+	//Clock for enemy spawning
 	srand(static_cast<unsigned>(time(NULL)));
 
+	//Time variable to determine when to spawn an enemy
 	this->spawnTimer = 0;
 	this->spawnTimerMax = 60;
 	this->gameClock.restart();
+
+	//Time variable to determine how fast to shoot
+	this->fireTimerMax = 60.f;
+	this->fireTimer = this->fireTimerMax;
 }
 
+//Enemy Functions
 void Game::initWindow() {
 	this->window = new RenderWindow(VideoMode({ 1920, 1080 }), "Elementalist", Style::Default);
 	this->window->setFramerateLimit(60);
@@ -62,11 +69,12 @@ void Game::initEnemies() {
 }
 
 void Game::moveEnemy(RectangleShape& enemy) {
+	float movementSpeed = 0.5f;
 	Vector2f direction = this->player.getPosition() - enemy.getPosition();
 	float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
 	if (length != 0) {
 		direction /= length; 
-		enemy.move(direction * 1.f); 
+		enemy.move(direction * movementSpeed); 
 	}
 }
 
@@ -93,6 +101,45 @@ void Game::updateEnemy() {
 	}
 }
 
+//Projectile functions
+void Game::spawnProjectile() {
+	Vector2i mousePos = Mouse::getPosition(*this->window);
+	Vector2f worldPos = this->window->mapPixelToCoords(mousePos);
+	this->projectiles.push_back(new Projectile(this->player.getPosition(), worldPos));
+}
+
+void Game::updateProjectiles() {
+	for (size_t i = 0; i < this->projectiles.size();) {
+		this->projectiles[i]->update();
+
+		bool deleted = false;
+
+		for (size_t j = 0; j < this->enemies.size(); j++) {
+			if (this->projectiles[i]->getBounds().findIntersection(this->enemies[j].getGlobalBounds())) {
+				this->enemies.erase(this->enemies.begin() + j);
+
+				delete this->projectiles[i];
+				this->projectiles.erase(this->projectiles.begin() + i);
+
+				deleted = true;
+				break;
+			}
+		}
+
+		if (!deleted && this->projectiles.size() > i && this->projectiles[i]->isExpired()) {
+			delete this->projectiles[i];
+			this->projectiles.erase(this->projectiles.begin() + i);
+			deleted = true;
+		}
+
+		if (!deleted) {
+			++i;
+		}
+	}
+}
+
+
+//Actual Game Logic functions
 Game::Game() {
 	this->initVariables();
 	this->initWindow();
@@ -115,7 +162,7 @@ void Game::update() {
 		}
 	}
 
-	float movementSpeed = 2.f;
+	float movementSpeed = 1.f;
 	if (Keyboard::isKeyPressed(Keyboard::Key::W))
 		this->player.move({ 0.f, -movementSpeed });
 	if (Keyboard::isKeyPressed(Keyboard::Key::S))
@@ -124,10 +171,20 @@ void Game::update() {
 		this->player.move({ -movementSpeed, 0.f });
 	if (Keyboard::isKeyPressed(Keyboard::Key::D))
 		this->player.move({ movementSpeed, 0.f });
+
+	if (this->fireTimer < this->fireTimerMax) {
+		this->fireTimer += 1.f;
+	}
+
+	if (this->fireTimer >= this->fireTimerMax) {
+		this->spawnProjectile();
+		this->fireTimer = 0.f;
+	}
 	
 	//Enemy movement
 	this->updateSpawner();
 	this->updateEnemy();
+	this->updateProjectiles();
 
 	this->gameView.setCenter(this->player.getPosition());
 	this->window->setView(this->gameView);
@@ -137,6 +194,9 @@ void Game::render() {
 	this->window->clear();
 	for (auto& e : this->enemies) {
 		this->window->draw(e);
+	}
+	for (auto* p : this->projectiles) {
+		p->render(*this->window);
 	}
 	this->window->draw(this->player);
 	this->window->display();
