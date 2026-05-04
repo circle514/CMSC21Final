@@ -14,11 +14,28 @@ private:
 	//Variables
 	//Window
 	RenderWindow* window;
-	CircleShape player;
+	View gameView;
+	std::vector<RectangleShape> enemies;
 
+	//Spawning variables
+	int spawnTimer;
+	int spawnTimerMax;
+	Clock gameClock;
+
+	//Entities
+	CircleShape player;
+	RectangleShape enemy;
+	
+	//init Functions for Game
+	void initPlayer();
+	void initEnemies();
 	void initVariables();
 	void initWindow();
-	void initPlayer();
+
+	//Logic functions
+	void spawnEnemy();
+	void moveEnemy(RectangleShape& enemy);
+	void resolveCollision(RectangleShape& currentEnemy, float minDistance);
 
 public: 
 	Game();
@@ -29,6 +46,8 @@ public:
 
 	//Functions
 	void update();
+	void updateEnemy();
+	void updateSpawner();
 	void render();
 };
 
