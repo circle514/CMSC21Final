@@ -6,9 +6,16 @@
 #include <SFML/Audio.hpp>
 #include <SFML/Network.hpp>
 
-/* Game Logic */
-//I understand having namespace in a header is bad practice, but for the sake of simplicity in this project, I'll use it here. In a larger project, it's better to avoid this and use fully qualified names or wrap the entire class in a namespace.
+//I understand having namespace in a header is bad practice, 
+// but for the sake of simplicity in this project, I'll use it here. In a larger project, 
+// it's better to avoid this and use fully qualified names or wrap the entire class in a namespace.
 using namespace sf;
+
+//I wont make another class for enemies because the only difference between them is health and I don't plan to have different types
+struct enemyData {
+	RectangleShape shape;
+	int hp;
+};
 
 class Game {
 private:
@@ -16,7 +23,7 @@ private:
 	//Window
 	RenderWindow* window;
 	View gameView;
-	std::vector<RectangleShape> enemies;
+	std::vector<enemyData> enemies;
 
 	//Spawning variables
 	int spawnTimer;
@@ -25,24 +32,36 @@ private:
 
 	//Entities
 	CircleShape player;
-	RectangleShape enemy;
 
 	//Projectiles
 	std::vector<Projectile*> projectiles;
 
+	//Background
+	Texture backgroundTexture;
+	Sprite backgroundSprite;
+
+	//Attack timer
 	float fireTimer;
 	float fireTimerMax;
 	
+	//HP stuff
+	int playerHp;
+	int playerHpMax;
+	RectangleShape hpBarBack;
+	RectangleShape hpBarFront;
+	void initUI();
+
 	//init Functions for Game
 	void initPlayer();
 	void initEnemies();
 	void initVariables();
+	void initBackground();
 	void initWindow();
 
 	//Logic functions for enemies
 	void spawnEnemy();
-	void moveEnemy(RectangleShape& enemy);
-	void resolveCollision(RectangleShape& currentEnemy, float minDistance);
+	void moveEnemy(enemyData& enemy);
+	void resolveCollision(enemyData& currentEnemy, float minDistance);
 
 	//Logic functions for projectiles
 	void updateProjectiles();

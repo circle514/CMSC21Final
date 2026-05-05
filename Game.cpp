@@ -17,6 +17,29 @@ void Game::initVariables() {
 	//Time variable to determine how fast to shoot
 	this->fireTimerMax = 60.f;
 	this->fireTimer = this->fireTimerMax;
+
+	this->playerHpMax = 4;
+	this->playerHp = this->playerHpMax;
+
+	this->hpBarBack.setSize({ 10.f, 2.f });
+	this->hpBarBack.setFillColor(Color(50, 50, 50, 200));
+
+	this->hpBarFront.setSize({ 10.f, 2.f });
+	this->hpBarFront.setFillColor(Color::Red);
+
+	//background
+	if (!this->backgroundTexture.loadFromFile("background.png")) {
+		std::cerr << "Error loading background texture!" << std::endl;
+	}
+	this->initBackground();
+}
+
+void Game::initBackground() {
+	this->backgroundTexture.setRepeated(true);
+	this->backgroundSprite.setTexture(this->backgroundTexture);
+	this->backgroundSprite.setScale({ 0.166f, 0.166f });
+	this->backgroundSprite.setTextureRect({ {0, 0}, {30000, 30000} });
+	this->backgroundSprite.setOrigin({ 15000.f, 15000.f });
 }
 
 //Enemy Functions
@@ -34,10 +57,10 @@ void Game::initPlayer() {
 }
 
 void Game::spawnEnemy() {
-	RectangleShape enemy;
-	enemy.setSize({ 4.f, 4.f });
-	enemy.setFillColor(Color::Red);
-	enemy.setOrigin({ 2.f, 2.f });
+	enemyData enemy;
+	enemy.shape.setSize({ 4.f, 4.f });
+	enemy.shape.setFillColor(Color::Red);
+	enemy.shape.setOrigin({ 2.f, 2.f });
 
 	float randomAngle = static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.f * 3.14159f;
 	float spawnRadius = 250.f;
@@ -47,7 +70,12 @@ void Game::spawnEnemy() {
 	float spawnX = playerPos.x + std::cos(randomAngle) * spawnRadius;
 	float spawnY = playerPos.y + std::sin(randomAngle) * spawnRadius;
 
-	enemy.setPosition({spawnX, spawnY});
+	enemy.shape.setPosition({ spawnX, spawnY });
+
+	//Logic for adding healthto enemies based on how long the game has been going
+	float secondsAlive = this->gameClock.getElapsedTime().asSeconds();
+	enemy.hp = 2 + static_cast<int>(secondsAlive / 15.0f);
+
 	this->enemies.push_back(enemy);
 }
 
@@ -68,36 +96,50 @@ void Game::initEnemies() {
 	this->enemies.clear();
 }
 
-void Game::moveEnemy(RectangleShape& enemy) {
+void Game::moveEnemy(enemyData& enemy) {
 	float movementSpeed = 0.5f;
-	Vector2f direction = this->player.getPosition() - enemy.getPosition();
+	Vector2f direction = this->player.getPosition() - enemy.shape.getPosition();
 	float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
 	if (length != 0) {
 		direction /= length; 
-		enemy.move(direction * movementSpeed); 
+		enemy.shape.move(direction * movementSpeed); 
 	}
 }
 
-void Game::resolveCollision(RectangleShape& currentEnemy, float minDistance) {
+void Game::resolveCollision(enemyData& currentEnemy, float minDistance) {
 	for (auto& other : this->enemies) {
 		if (&currentEnemy == &other) continue;
 
-		Vector2f dir = currentEnemy.getPosition() - other.getPosition(); 
+		Vector2f dir = currentEnemy.shape.getPosition() - other.shape.getPosition(); 
 			float distance = std::sqrt(dir.x * dir.x + dir.y * dir.y);
 
 		if (distance < minDistance && distance > 0.f) {
 			Vector2f pushDir = dir / distance;
 			float pushStrength = (minDistance - distance) * 0.05f; 
-			currentEnemy.move(pushDir * pushStrength); 
+			currentEnemy.shape.move(pushDir * pushStrength); 
 		}
 	}
 }
 
+//If I was a bit smarter I couldve foreseen that I should check all collisions (not just enemy-enemy), but yeah
 void Game::updateEnemy() {
 	float overlapThreshold = 10.f;
-	for (auto& enemy : this->enemies) {
-		this->moveEnemy(enemy);
-		this->resolveCollision(enemy, overlapThreshold);
+	for (size_t i = 0; i < this->enemies.size(); ) {
+		this->moveEnemy(this->enemies[i]);
+		this->resolveCollision(this->enemies[i], overlapThreshold);
+
+		if (this->player.getGlobalBounds().findIntersection(this->enemies[i].shape.getGlobalBounds())) {
+			this->playerHp -= 1;
+			this->enemies.erase(this->enemies.begin() + i); 
+
+			if (this->playerHp <= 0) {
+				std::cout << "Game Over!" << std::endl;
+				this->window->close();
+			}
+		}
+		else {
+			i++;
+		}
 	}
 }
 
@@ -115,8 +157,12 @@ void Game::updateProjectiles() {
 		bool deleted = false;
 
 		for (size_t j = 0; j < this->enemies.size(); j++) {
-			if (this->projectiles[i]->getBounds().findIntersection(this->enemies[j].getGlobalBounds())) {
-				this->enemies.erase(this->enemies.begin() + j);
+			if (this->projectiles[i]->getBounds().findIntersection(this->enemies[j].shape.getGlobalBounds())) {
+				this->enemies[j].hp -= (this->projectiles[i]->getDamage());
+
+				if (this->enemies[j].hp <= 0) {
+					this->enemies.erase(this->enemies.begin() + j);
+				}
 
 				delete this->projectiles[i];
 				this->projectiles.erase(this->projectiles.begin() + i);
@@ -140,7 +186,7 @@ void Game::updateProjectiles() {
 
 
 //Actual Game Logic functions
-Game::Game() {
+Game::Game() : backgroundSprite(this->backgroundTexture) {
 	this->initVariables();
 	this->initWindow();
 	this->initPlayer();
@@ -149,6 +195,9 @@ Game::Game() {
 
 Game::~Game() {
 	delete this->window;
+	for (auto* p : this->projectiles) {
+		delete p;
+	}
 }
 
 const bool Game::running() {
@@ -186,18 +235,32 @@ void Game::update() {
 	this->updateEnemy();
 	this->updateProjectiles();
 
+	Vector2f hpPos = this->player.getPosition();
+	float pRadius = this->player.getRadius();
+
+	this->hpBarBack.setPosition({hpPos.x - 1.f, hpPos.y + (pRadius * 2.f) + 1.f});
+	this->hpBarFront.setPosition(this->hpBarBack.getPosition());
+		
+	float hpPercent = static_cast<float>(this->playerHp) / this->playerHpMax;
+	this->hpBarFront.setSize({ 10.f * hpPercent, 2.f });
+
 	this->gameView.setCenter(this->player.getPosition());
 	this->window->setView(this->gameView);
 }
 
 void Game::render() {
 	this->window->clear();
+	this->window->draw(this->backgroundSprite);
 	for (auto& e : this->enemies) {
-		this->window->draw(e);
+		this->window->draw(e.shape);
 	}
 	for (auto* p : this->projectiles) {
 		p->render(*this->window);
 	}
+
+	this->window->draw(this->hpBarBack);
+	this->window->draw(this->hpBarFront);
+
 	this->window->draw(this->player);
 	this->window->display();
 }

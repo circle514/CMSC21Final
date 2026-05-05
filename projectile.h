@@ -12,6 +12,7 @@ private:
 	CircleShape shape;
 	Vector2f velocity;
 	float movementSpeed;
+	int damage;
 
 	//Time variables for deleting after a set amount of time
 	float timer;
@@ -24,6 +25,7 @@ public:
 	//Accessors
 	const FloatRect getBounds() const;
 	const bool isExpired() const;
+	const int getDamage() const;
 
 	void update();
 	void render(RenderTarget& target);

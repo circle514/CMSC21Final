@@ -8,6 +8,7 @@ Projectile::Projectile(Vector2f playerPos, Vector2f targetPos) {
 	this->shape.setFillColor(Color::Yellow);
 	this->shape.setPosition(playerPos);
 	this->movementSpeed = 2.f;
+	this->damage = 1;
 	
 	this->timer = 0.f;
 	this->timerMax = 600.f;
@@ -32,6 +33,10 @@ const bool Projectile::isExpired() const {
 void Projectile::update() {
 	this->shape.move(this->velocity);
 	this->timer += 1.f;
+}
+
+const int Projectile::getDamage() const {
+	return this->damage;
 }
 
 void Projectile::render(RenderTarget& target) {
